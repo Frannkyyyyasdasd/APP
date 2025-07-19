@@ -140,16 +140,12 @@ const InklusionModule = () => {
   const wochentage = ['montag', 'dienstag', 'mittwoch', 'donnerstag', 'freitag'];
   const wochentagsNamen = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag'];
 
-  // ✅ FILTER-FUNKTIONEN
-  const filteredSchueler = inklusionsSchueler.filter(schueler => {
-    const schule = getInklusionsSchuleById(schueler.schuleId);
-    return schueler.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           schueler.klasse.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           schueler.foerderschwerpunkt.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           schule?.name.toLowerCase().includes(searchTerm.toLowerCase());
-  });
+  // ✅ HILFSFUNKTIONEN
+  const timeToMinutes = (timeStr) => {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
 
-  // ✅ BETREUUNGSZEITEN HELPER
   const getBetreuungsStundenProWoche = (betreuung) => {
     let gesamtStunden = 0;
     Object.values(betreuung.zeiten).forEach(tagZeiten => {
@@ -163,9 +159,224 @@ const InklusionModule = () => {
     return gesamtStunden;
   };
 
-  const timeToMinutes = (timeStr) => {
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    return hours * 60 + minutes;
+  // ✅ FILTER-FUNKTIONEN
+  const filteredSchueler = inklusionsSchueler.filter(schueler => {
+    const schule = getInklusionsSchuleById(schueler.schuleId);
+    return schueler.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           schueler.klasse.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           schueler.foerderschwerpunkt.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           schule?.name.toLowerCase().includes(searchTerm.toLowerCase());
+  });
+
+  // ✅ NEUE PDF EXPORT FUNKTION - GESAMTE INKLUSIONSLISTE
+  const exportGesamteInklusionsliste = () => {
+    try {
+      const doc = new jsPDF();
+      
+      // HEADER
+      doc.setFontSize(18);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Inklusionsliste - Sonderpaedagogische Grundversorgung', 20, 25);
+      
+      doc.setFontSize(12);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Erstellt am: ${new Date().toLocaleDateString('de-DE')} um ${new Date().toLocaleTimeString('de-DE')}`, 20, 35);
+      
+      let yPos = 50;
+
+      // ÜBERSICHT STATISTIKEN
+      const gesamtSchueler = inklusionsSchueler.length;
+      const gesamtSchulen = inklusionsSchulen.length;
+      const gesamtPersonal = new Set(Object.values(inklusionsBetreuungen).map(b => b.personId)).size;
+      const gesamtStunden = Object.values(inklusionsBetreuungen).reduce((sum, b) => {
+        return sum + getBetreuungsStundenProWoche(b);
+      }, 0);
+
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Gesamtuebersicht:', 20, yPos);
+      yPos += 10;
+      
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Externe Schulen: ${gesamtSchulen}`, 25, yPos);
+      yPos += 7;
+      doc.text(`Betreute Schueler: ${gesamtSchueler}`, 25, yPos);
+      yPos += 7;
+      doc.text(`Eingesetztes Personal: ${gesamtPersonal}`, 25, yPos);
+      yPos += 7;
+      doc.text(`Gesamt-Wochenstunden: ${gesamtStunden.toFixed(1)} Stunden`, 25, yPos);
+      yPos += 20;
+
+      // SCHULEN MIT SCHÜLERN UND BETREUERN
+      inklusionsSchulen.forEach((schule, schuleIndex) => {
+        // Seitenumbruch bei Bedarf
+        if (yPos > 250) {
+          doc.addPage();
+          yPos = 20;
+        }
+
+        // SCHULE HEADER
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`${schule.name}`, 20, yPos);
+        yPos += 8;
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`${schule.adresse}`, 25, yPos);
+        yPos += 6;
+        doc.text(`Tel: ${schule.telefon} | Email: ${schule.email}`, 25, yPos);
+        yPos += 6;
+        doc.text(`Ansprechpartner: ${schule.ansprechpartner}`, 25, yPos);
+        yPos += 10;
+
+        // SCHÜLER DIESER SCHULE
+        const schuelerDerSchule = inklusionsSchueler.filter(s => s.schuleId === schule.id);
+        
+        if (schuelerDerSchule.length === 0) {
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'italic');
+          doc.text('Keine Schueler betreut', 30, yPos);
+          yPos += 15;
+        } else {
+          schuelerDerSchule.forEach((schueler, schuelerIndex) => {
+            // Seitenumbruch bei Bedarf
+            if (yPos > 260) {
+              doc.addPage();
+              yPos = 20;
+            }
+
+            // SCHÜLER INFO
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`${schueler.name} (Klasse ${schueler.klasse})`, 30, yPos);
+            yPos += 7;
+            
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Foerderschwerpunkt: ${schueler.foerderschwerpunkt}`, 35, yPos);
+            yPos += 6;
+            
+            if (schueler.bemerkungen) {
+              doc.text(`Bemerkungen: ${schueler.bemerkungen}`, 35, yPos);
+              yPos += 6;
+            }
+
+            // BETREUENDE LEHRKRÄFTE
+            const betreuungen = getBetreuungenFuerSchueler(schueler.id);
+            
+            if (Object.keys(betreuungen).length === 0) {
+              doc.setFont('helvetica', 'italic');
+              doc.text('Keine Betreuung zugeordnet', 35, yPos);
+              yPos += 6;
+            } else {
+              Object.values(betreuungen).forEach(betreuung => {
+                const person = betreuung.person;
+                const stundenWoche = getBetreuungsStundenProWoche(betreuung);
+                
+                // LEHRKRAFT FETT MARKIERT
+                doc.setFont('helvetica', 'bold');
+                doc.text(`Lehrkraft: ${person.name} (${person.typ})`, 35, yPos);
+                yPos += 6;
+                
+                doc.setFont('helvetica', 'normal');
+                doc.text(`Wochenstunden: ${stundenWoche.toFixed(1)} Std/Woche`, 40, yPos);
+                yPos += 6;
+                
+                if (betreuung.notizen) {
+                  doc.text(`Notizen: ${betreuung.notizen}`, 40, yPos);
+                  yPos += 6;
+                }
+              });
+            }
+            yPos += 5; // Abstand zwischen Schülern
+          });
+        }
+        yPos += 10; // Abstand zwischen Schulen
+      });
+
+      // PERSONALLISTE
+      if (yPos > 200) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Eingesetztes Personal (Uebersicht):', 20, yPos);
+      yPos += 15;
+
+      // Personal-Tabelle erstellen
+      const personalData = [];
+      const eingesetztePersonalIds = new Set(Object.values(inklusionsBetreuungen).map(b => b.personId));
+      
+      eingesetztePersonalIds.forEach(personId => {
+        const person = getPersonById(personId);
+        if (person) {
+          const gesamtStunden = Object.values(inklusionsBetreuungen)
+            .filter(b => b.personId === personId)
+            .reduce((sum, b) => sum + getBetreuungsStundenProWoche(b), 0);
+          
+          const anzahlSchueler = Object.values(inklusionsBetreuungen)
+            .filter(b => b.personId === personId).length;
+          
+          personalData.push([
+            person.name,
+            person.typ,
+            `${gesamtStunden.toFixed(1)} Std`,
+            `${anzahlSchueler} Schueler`
+          ]);
+        }
+      });
+
+      // AutoTable für Personal
+      doc.autoTable({
+        head: [['Name', 'Position', 'Wochenstunden', 'Anzahl Schueler']],
+        body: personalData,
+        startY: yPos,
+        theme: 'grid',
+        styles: {
+          fontSize: 10,
+          cellPadding: 3
+        },
+        headStyles: {
+          fillColor: [46, 125, 50], // Grün
+          textColor: 255,
+          fontStyle: 'bold',
+          fontSize: 11
+        },
+        bodyStyles: {
+          fontSize: 9
+        },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 50 }, // Name fett
+          1: { cellWidth: 25, halign: 'center' }, // Position
+          2: { cellWidth: 30, halign: 'center' }, // Stunden
+          3: { cellWidth: 30, halign: 'center' }  // Anzahl
+        }
+      });
+
+      // FOOTER
+      const pageCount = doc.internal.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Erstellt mit Master-Plan System - Inklusions-Verwaltung', 20, 285);
+        doc.text(`Seite ${i} von ${pageCount}`, 270, 285);
+      }
+
+      // DATEI SPEICHERN
+      const fileName = `Inklusionsliste_${new Date().toISOString().split('T')[0]}.pdf`;
+      doc.save(fileName);
+      
+      alert('✅ Inklusionsliste erfolgreich als PDF exportiert!');
+      
+    } catch (error) {
+      console.error('❌ PDF-Export-Fehler:', error);
+      alert('❌ Fehler beim PDF-Export der Inklusionsliste!');
+    }
   };
 
   // ✅ CRUD FUNKTIONEN
@@ -283,7 +494,7 @@ const InklusionModule = () => {
     setSelectedSchueler(null);
   };
 
-  // ✅ PDF EXPORT
+  // ✅ PDF EXPORT für einzelne Schule (bestehende Funktion)
   const exportSchulePDF = (schuleId) => {
     const schule = getInklusionsSchuleById(schuleId);
     if (!schule) return;
@@ -932,11 +1143,19 @@ const InklusionModule = () => {
               placeholder="Schüler, Schule oder Förderschwerpunkt suchen..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
             />
           </div>
           
           <div className="flex gap-3">
+            <button 
+              onClick={exportGesamteInklusionsliste}
+              className="px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+            >
+              <FileText size={18} />
+              Inklusionsliste exportieren
+            </button>
+            
             <button 
               onClick={() => openModal('schule')}
               className="px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
