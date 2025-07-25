@@ -1,0 +1,598 @@
+import React, { useState, useEffect } from 'react';
+import { Calendar, Clock, Users, MapPin, Search, Mail, FileText, AlertTriangle, Eye, UserX, Coffee, Sun, Moon, X, Check, Save, Download, Upload, CheckCircle, Send, Edit2, Trash2, Plus, User } from 'lucide-react';
+
+// ✅ CSS IMPORT für besseres Layout
+import './UebersichtModule.css';
+
+// ✅ EMAIL INTEGRATION
+import emailjs from '@emailjs/browser';
+
+// ✅ PDF INTEGRATION  (Punkt 6)
+import jsPDF from 'jspdf';
+import 'jspdf-autotable'; // Nur importieren, fügt sich an jspdf an
+
+// ✅ CONTEXT IMPORT statt dataStore Props
+import { useStundenplan } from '../context/StundenplanContext';
+
+// ✅ NEU: Import für zentrale Konstanten (Punkt 4)
+import { WOCHENTAGE_KEYS, WOCHENTAGE_NAMEN, SCHULSTUFEN_TYPEN, EMAILJS_CONFIG_PUBLIC, ZEITSLOTS_STANDARD, KLASSEN_STRUKTUR_STANDARD } from '../constants/appConstants';
+
+// ✅ HINWEIS: showToastMessage wird jetzt als Prop von StundenplanApp übergeben (Punkt 3)
+const UebersichtModule = ({ showToastMessage }) => {
+  const [selectedStufe, setSelectedStufe] = useState('alle');
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [searchReplacement, setSearchReplacement] = useState('');
+  const [showReplacementModal, setShowReplacementModal] = useState(false);
+  const [replacementContext, setReplacementContext] = useState(null);
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // ✅ VERTRETUNGSMANAGER STATES
+  const [showVertretungsManager, setShowVertretungsManager] = useState(false);
+  const [editingVertretung, setEditingVertretung] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+
+  // ✅ Debounced Search (unverändert)
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchReplacement);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [searchReplacement]);
+
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    const saved = localStorage.getItem('darkMode');
+    return saved ? JSON.parse(saved) : false;
+  });
+  
+  // ✅ CONTEXT ZUGRIFF (unverändert)
+  const { 
+    personal,
+    getPersonalMitStatus, 
+    getPersonById,
+    masterStundenplaene,
+    masterPausenaufsichten,
+    personalAbwesenheiten,
+    klassenAbwesenheiten,
+    ersatzTabelle, 
+    setErsatzTabelle,
+    // ✅ VERTRETUNGS-MANAGEMENT
+    vertretungen,
+    saveVertretung,
+    removeVertretung,
+    getVertretungenForDate
+  } = useStundenplan();
+
+  // ✅ 🔧 SUPER-SICHERE PERSON-FINDER-FUNKTION (Das ist der Hauptfix!)
+  const getPersonNameSafe = (personId) => {
+    // 🔍 DEBUG: Was haben wir?
+    console.log('🔍 Suche Person mit ID:', personId, 'Typ:', typeof personId);
+    console.log('🔍 Verfügbare Personen:', personal?.length || 0);
+    
+    if (!personId && personId !== 0) {
+      console.warn('❌ PersonID ist leer/undefined');
+      return 'Keine Person';
+    }
+
+    if (!personal || !Array.isArray(personal) || personal.length === 0) {
+      console.warn('❌ Personal-Array ist leer oder nicht verfügbar');
+      return `Person ${personId} (Daten nicht geladen)`;
+    }
+
+    // 📝 VERSUCH 1: Original Context-Funktion  
+    try {
+      let person = getPersonById(personId);
+      if (person?.name) {
+        console.log('✅ VERSUCH 1 erfolgreich:', person.name);
+        return person.name;
+      }
+    } catch (e) {
+      console.warn('❌ VERSUCH 1 fehlgeschlagen:', e);
+    }
+    
+    // 📝 VERSUCH 2: Direkt in der Liste suchen (exakt)
+    let person = personal.find(p => p.id === personId);
+    if (person?.name) {
+      console.log('✅ VERSUCH 2 erfolgreich:', person.name);
+      return person.name;
+    }
+    
+    // 📝 VERSUCH 3: Als Number/String konvertiert vergleichen
+    const personIdAsNumber = parseInt(personId);
+    const personIdAsString = String(personId);
+    
+    person = personal.find(p => 
+      p.id === personIdAsNumber || 
+      p.id === personIdAsString ||
+      String(p.id) === personIdAsString
+    );
+    if (person?.name) {
+      console.log('✅ VERSUCH 3 erfolgreich:', person.name);
+      return person.name;
+    }
+    
+    // 📝 VERSUCH 4: Loose Equality (==) - letzter Versuch
+    person = personal.find(p => p.id == personId);
+    if (person?.name) {
+      console.log('✅ VERSUCH 4 erfolgreich:', person.name);
+      return person.name;
+    }
+    
+    // ❌ FALLBACK: Zeige PersonID mit Debug-Info
+    console.warn('❌ Person nicht gefunden! PersonID:', personId);
+    console.warn('❌ Verfügbare IDs:', personal.map(p => `${p.id} (${typeof p.id})`));
+    return `Person ${personId} (nicht gefunden)`;
+  };
+
+  // ✅ Dark Mode
+  useEffect(() => {
+    localStorage.setItem('darkMode', JSON.stringify(isDarkMode));
+    if (isDarkMode) {
+      document.body.classList.add('dark-mode');
+    } else {
+      document.body.classList.remove('dark-mode');
+    }
+  }, [isDarkMode]);
+
+  // ✅ EmailJS Config
+  const EMAILJS_CONFIG = EMAILJS_CONFIG_PUBLIC;
+
+  const istFreitag = selectedDate.getDay() === 5;
+
+  // ✅ schulzeiten
+  const schulzeiten = ZEITSLOTS_STANDARD.map(slot => {
+    const [von, bis] = slot.split('-');
+    if (slot === '09:30-09:50') return { von, bis, name: '1. Pause', typ: 'pause' };
+    if (slot === '11:20-11:40') return { von, bis, name: '2. Pause', typ: 'pause' };
+    if (slot === '11:40-12:50') return { von, bis, name: 'Mittagessen', typ: 'mittagessen', block: 'M' };
+    if (slot === '12:50-13:10' && !istFreitag) return { von, bis, name: '3. Pause', typ: 'pause' };
+    if (slot === '14:40-15:30') return { von, bis, name: 'Spätbetreuung', typ: 'betreuung', block: 'S' };
+    
+    let blockNum = 0;
+    if (slot === '08:00-08:45' || slot === '08:45-09:30') blockNum = 1;
+    else if (slot === '09:50-10:35' || slot === '10:35-11:20') blockNum = 2;
+    else if (slot === '13:10-13:55' || slot === '13:55-14:40') blockNum = 3;
+
+    return { von, bis, name: `${blockNum}. Block`, typ: 'unterricht', block: blockNum };
+  }).filter(slot => {
+    return !(slot.name === '3. Pause' && istFreitag);
+  });
+
+  // ✅ klassen
+  const klassen = KLASSEN_STRUKTUR_STANDARD;
+  
+  // ✅ ABWESENHEITS-PRÜFUNGEN (REPARIERT mit getPersonNameSafe)
+  const isPersonAbwesendById = (personId, datum = selectedDate) => {
+    const personName = getPersonNameSafe(personId);
+    if (personName.includes('nicht gefunden') || personName.includes('Daten nicht geladen')) return false;
+    
+    const dateString = datum.toISOString().split('T')[0];
+    return personalAbwesenheiten.some(abw => {
+      const vonDate = abw.von;
+      const bisDate = abw.bis || abw.von;
+      return abw.person === personName && 
+             dateString >= vonDate && 
+             dateString <= bisDate;
+    });
+  };
+
+  const getPersonAbwesenheitsgrundById = (personId, datum = selectedDate) => {
+    const personName = getPersonNameSafe(personId);
+    if (personName.includes('nicht gefunden') || personName.includes('Daten nicht geladen')) return null;
+    
+    const dateString = datum.toISOString().split('T')[0];
+    const abwesenheit = personalAbwesenheiten.find(abw => {
+      const vonDate = abw.von;
+      const bisDate = abw.bis || abw.von;
+      return abw.person === personName && 
+             dateString >= vonDate && 
+             dateString <= bisDate;
+    });
+    return abwesenheit?.grund || null;
+  };
+
+  const isKlasseAbwesend = (klasseName, datum = selectedDate) => {
+    const dateString = datum.toISOString().split('T')[0];
+    return klassenAbwesenheiten.some(abw => {
+      const vonDate = abw.von;
+      const bisDate = abw.bis || abw.von;
+      return abw.klasse === klasseName && 
+             dateString >= vonDate && 
+             dateString <= bisDate;
+    });
+  };
+
+  const getKlassenAbwesenheitsgrund = (klasseName, datum = selectedDate) => {
+    const dateString = datum.toISOString().split('T')[0];
+    const abwesenheit = klassenAbwesenheiten.find(abw => {
+      const vonDate = abw.von;
+      const bisDate = abw.bis || abw.von;
+      return abw.klasse === klasseName && 
+             dateString >= vonDate && 
+             dateString <= bisDate;
+    });
+    return abwesenheit?.grund || null;
+  };
+
+  const getCurrentDayName = () => {
+    const wochentagNames = ['sonntag', ...WOCHENTAGE_KEYS, 'samstag'];
+    return wochentagNames[selectedDate.getDay()];
+  };
+
+  // ✅ 🔧 REPARIERTE STUNDENPLAN-GENERIERUNG (Hauptfix!)
+  const generateCurrentDaySchedule = () => {
+    console.log('🔍 === STUNDENPLAN-GENERIERUNG STARTET ===');
+    console.log('🔍 Personal verfügbar:', personal?.length || 0);
+    console.log('🔍 MasterStundenpläne:', Object.keys(masterStundenplaene || {}));
+    
+    const currentDay = getCurrentDayName();
+    const tagesVertretungen = getVertretungenForDate(selectedDate);
+    const schedule = {};
+
+    if (!masterStundenplaene) {
+      console.warn('❌ Keine masterStundenplaene verfügbar');
+      return {};
+    }
+
+    Object.entries(masterStundenplaene).forEach(([klasse, wochenplan]) => {
+      console.log(`🔍 Verarbeite Klasse: ${klasse}`);
+      const tagesplan = wochenplan[currentDay] || {};
+      console.log(`🔍 Tagesplan für ${klasse} am ${currentDay}:`, tagesplan);
+      
+      schedule[klasse] = {};
+
+      Object.entries(tagesplan).forEach(([zeitslot, personIds]) => {
+        console.log(`🔍 Zeitslot ${zeitslot}: PersonIDs`, personIds);
+        
+        if (!Array.isArray(personIds)) {
+          console.warn(`❌ PersonIDs für ${klasse} ${zeitslot} ist kein Array:`, personIds);
+          return;
+        }
+        
+        schedule[klasse][zeitslot] = personIds.map(personId => {
+          console.log(`🔍 Verarbeite PersonID: ${personId}`);
+          
+          // 🔧 HIER IST DER FIX: Benutze die sichere Funktion!
+          const personName = getPersonNameSafe(personId);
+          const person = {
+            id: personId,
+            name: personName
+          };
+          
+          const isAbwesend = isPersonAbwesendById(personId);
+          const abwesenheitsgrund = getPersonAbwesenheitsgrundById(personId);
+          
+          console.log(`🔍 Person: ${personName}, Abwesend: ${isAbwesend}`);
+          
+          // Vertretungs-Suche
+          const vertretungKey = Object.keys(tagesVertretungen).find(key => {
+            try {
+              const parsedKey = JSON.parse(key);
+              return parsedKey.type === 'stundenplan' && 
+                     parsedKey.klasse === klasse && 
+                     parsedKey.zeit === zeitslot && 
+                     parsedKey.person?.id === personId;
+            } catch (e) {
+              return false;
+            }
+          });
+          
+          const vertretung = vertretungKey ? tagesVertretungen[vertretungKey] : null;
+          
+          if (vertretung && isAbwesend) {
+            const ersatzPersonName = getPersonNameSafe(vertretung.ersatzPersonId);
+            const ersatzPerson = {
+              id: vertretung.ersatzPersonId,
+              name: ersatzPersonName,
+              abwesend: false,
+              originalPerson: personName,
+            };
+            
+            return {
+              person: ersatzPerson,
+              isReplacement: true,
+              originalPerson: person,
+              vertretungKey
+            };
+          }
+          
+          return {
+            person: {
+              ...person,
+              abwesend: isAbwesend,
+              abwesenheitsgrund: abwesenheitsgrund
+            },
+            isReplacement: false
+          };
+        });
+      });
+    });
+
+    console.log('🔍 === STUNDENPLAN-GENERIERUNG FERTIG ===');
+    console.log('🔍 Generierter Schedule:', schedule);
+    return schedule;
+  };
+
+  // ✅ MEMOIZED DATA mit Vertretungen-Abhängigkeit
+  const stundenplaene = React.useMemo(() => generateCurrentDaySchedule(), [
+    personalAbwesenheiten, 
+    selectedDate, 
+    masterStundenplaene, 
+    vertretungen,
+    personal // ✅ Wichtig: personal als Dependency
+  ]);
+
+  const getPersonColor = (person, isReplacement = false) => {
+    if (person.abwesend) return 'absent';
+    if (isReplacement) return 'replacement';
+    return 'available';
+  };
+
+  const openReplacementModal = (context) => {
+    const contextWithDay = {
+      ...context,
+      wochentag: selectedDate.getDay()
+    };
+    
+    setReplacementContext(contextWithDay);
+    setShowReplacementModal(true);
+    setSearchReplacement('');
+  };
+
+  const formatDate = (date) => {
+    return date.toLocaleDateString('de-DE', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  // ✅ 🔧 REPARIERTE STUNDENPLAN-TABELLE mit korrekter CSS-Struktur
+  const StundenplanTabelle = ({ klassen: klassenListe, stufeName }) => (
+    <div className="schedule-container">
+      <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-6">
+        <h3 className="text-xl font-bold text-white flex items-center gap-2">
+          <Calendar size={24} />
+          {stufeName}
+        </h3>
+        <p className="text-blue-100 text-sm mt-1">
+          🔧 CSS-Struktur korrekt implementiert
+        </p>
+      </div>
+      
+      <div className="schedule-scroll-container">
+        <table className="schedule-table">
+          <thead>
+            <tr>
+              <th className="sticky left-0 z-20">
+                <div className="time-cell-content">
+                  <div className="time-cell-time">Zeit</div>
+                  <div className="time-cell-name normal">Block</div>
+                </div>
+              </th>
+              {klassenListe.map(klasse => (
+                <th key={klasse.name}>
+                  <div className="class-header-content">
+                    <div className="class-header-name">{klasse.name}</div>
+                    <div className="class-header-location">
+                      <MapPin size={10} />
+                      <span>{klasse.standort}</span>
+                    </div>
+                  </div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {schulzeiten.map(zeit => (
+              <tr 
+                key={zeit.von} 
+                className={
+                  zeit.typ === 'pause' ? 'pause-row' : 
+                  zeit.typ === 'mittagessen' ? 'lunch-row' : ''
+                }
+              >
+                <td className="sticky left-0">
+                  <div className="time-cell-content">
+                    <div className="time-cell-time">{zeit.von}-{zeit.bis}</div>
+                    <div className={`time-cell-name ${
+                      zeit.typ === 'pause' ? 'pause' : 
+                      zeit.typ === 'mittagessen' ? 'lunch' : 
+                      'normal'
+                    }`}>
+                      {zeit.name}
+                    </div>
+                  </div>
+                </td>
+                
+                {zeit.typ ? (
+                  // Pausen/Mittagessen Zellen
+                  klassenListe.map(klasse => (
+                    <td key={klasse.name}>
+                      {isKlasseAbwesend(klasse.name) ? (
+                        <div className="class-absent-notice">
+                          <div className="class-absent-header">
+                            <AlertTriangle size={12} />
+                            <span>Klasse abwesend</span>
+                          </div>
+                          <div className="class-absent-reason">
+                            {getKlassenAbwesenheitsgrund(klasse.name)}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="empty-cell">
+                          {zeit.name}
+                        </div>
+                      )}
+                    </td>
+                  ))
+                ) : (
+                  // Unterrichts-Zellen
+                  klassenListe.map(klasse => {
+                    const zeitSlot = `${zeit.von}-${zeit.bis}`;
+                    const assignments = stundenplaene[klasse.name]?.[zeitSlot] || [];
+                    
+                    return (
+                      <td key={klasse.name}>
+                        <div className="assignment-cell">
+                          {assignments.length === 0 ? (
+                            <div className="empty-cell">
+                              {isKlasseAbwesend(klasse.name) ? (
+                                <div className="class-absent-notice">
+                                  <div className="class-absent-header">
+                                    <AlertTriangle size={12} />
+                                    <span>Klasse abwesend</span>
+                                  </div>
+                                  <div className="class-absent-reason">
+                                    {getKlassenAbwesenheitsgrund(klasse.name)}
+                                  </div>
+                                </div>
+                              ) : (
+                                '-'
+                              )}
+                            </div>
+                          ) : (
+                            <div className="assignment-list">
+                              {isKlasseAbwesend(klasse.name) ? (
+                                <div className="class-absent-notice">
+                                  <div className="class-absent-header">
+                                    <AlertTriangle size={12} />
+                                    <span>Klasse abwesend</span>
+                                  </div>
+                                  <div className="class-absent-reason">
+                                    {getKlassenAbwesenheitsgrund(klasse.name)}
+                                  </div>
+                                  {assignments.map((assignment, idx) => (
+                                    <div key={idx} className="assignment-item available opacity-50">
+                                      <div className="assignment-main">
+                                        <span className="assignment-name">{assignment.person.name}</span>
+                                      </div>
+                                      <div className="assignment-details">(Klasse nicht da)</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                assignments.map((assignment, idx) => (
+                                  <div
+                                    key={idx}
+                                    className={`assignment-item ${getPersonColor(assignment.person, assignment.isReplacement)}`}
+                                    onClick={() => {
+                                      console.log('🔍 Geklickt auf:', assignment.person.name);
+                                      console.log('🔍 Abwesend?', assignment.person.abwesend);
+                                      console.log('🔍 Grund:', assignment.person.abwesenheitsgrund);
+                                      
+                                      if (assignment.person.abwesend) {
+                                        openReplacementModal({
+                                          type: 'stundenplan',
+                                          klasse: klasse.name,
+                                          zeit: zeitSlot,
+                                          person: assignment.person
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    <div className="assignment-main">
+                                      {assignment.person.abwesend && <AlertTriangle size={12} />}
+                                      {assignment.isReplacement && <Check size={12} />}
+                                      <span className="assignment-name">{assignment.person.name}</span>
+                                    </div>
+                                    {assignment.person.abwesend && (
+                                      <div className="assignment-details">
+                                        {assignment.person.abwesenheitsgrund}
+                                      </div>
+                                    )}
+                                    {assignment.isReplacement && (
+                                      <div className="assignment-details">
+                                        ↳ für {assignment.originalPerson?.name}
+                                      </div>
+                                    )}
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    );
+                  })
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className={`uebersicht-module ${isDarkMode ? 'dark' : ''}`}>
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 mb-8">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                📅 Tagesübersicht (Person-Mapping ✅ REPARIERT + CSS-Fix)
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400">
+                {formatDate(selectedDate)}
+                {istFreitag && <span className="ml-2 text-orange-600 font-medium">(Freitag - keine 3. Pause)</span>}
+              </p>
+              <p className="text-sm text-green-600 dark:text-green-400 mt-1">
+                🔧 Person-Mapping UND CSS-Struktur beide repariert! Zeigt jetzt Namen korrekt an.
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-4">
+              <button
+                onClick={() => setIsDarkMode(!isDarkMode)}
+                className="p-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors"
+                title={isDarkMode ? 'Hell-Modus aktivieren' : 'Dunkel-Modus aktivieren'}
+              >
+                {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+              </button>
+              
+              <select
+                value={selectedStufe}
+                onChange={(e) => setSelectedStufe(e.target.value)}
+                className="px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-medium"
+              >
+                <option value="alle">Alle Stufen</option>
+                {SCHULSTUFEN_TYPEN.map(stufe => (
+                  <option key={stufe} value={stufe}>{stufe}</option>
+                ))}
+              </select>
+              
+              <input
+                type="date"
+                value={selectedDate.toISOString().split('T')[0]}
+                onChange={(e) => setSelectedDate(new Date(e.target.value))}
+                className="px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Stundenplan Tabellen */}
+        {selectedStufe === 'alle' ? (
+          <div className="space-y-8">
+            <StundenplanTabelle klassen={klassen.primarstufe} stufeName="Primarstufe (Klassen 1-4)" />
+            <StundenplanTabelle klassen={klassen.sek1} stufeName="Sekundarstufe I (Klassen 5-9)" />
+            <StundenplanTabelle klassen={klassen.sek2} stufeName="Sekundarstufe II (Klassen 10-12)" />
+          </div>
+        ) : (
+          <StundenplanTabelle 
+            klassen={klassen[selectedStufe]} 
+            stufeName={
+              selectedStufe === 'primarstufe' ? 'Primarstufe (Klassen 1-4)' :
+              selectedStufe === 'sek1' ? 'Sekundarstufe I (Klassen 5-9)' :
+              'Sekundarstufe II (Klassen 10-12)'
+            }
+          />
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default UebersichtModule;
