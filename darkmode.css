@@ -1,0 +1,388 @@
+/* Verbesserte Dark Mode Styles mit besserem Kontrast für ALLE Module */
+.dark-mode {
+  background-color: #0f172a !important;
+  color: #e2e8f0 !important;
+}
+
+/* Basis-Hintergründe */
+.dark-mode .bg-white {
+  background-color: #1e293b !important;
+  color: #e2e8f0 !important;
+}
+
+.dark-mode .bg-gray-50 {
+  background-color: #334155 !important;
+}
+
+.dark-mode .bg-gray-100 {
+  background-color: #475569 !important;
+}
+
+.dark-mode .bg-gray-200 {
+  background-color: #64748b !important;
+}
+
+/* Text-Farben mit besserem Kontrast */
+.dark-mode .text-gray-900 {
+  color: #f1f5f9 !important;
+}
+
+.dark-mode .text-gray-800 {
+  color: #e2e8f0 !important;
+}
+
+.dark-mode .text-gray-700 {
+  color: #cbd5e1 !important;
+}
+
+.dark-mode .text-gray-600 {
+  color: #94a3b8 !important;
+}
+
+.dark-mode .text-gray-500 {
+  color: #94a3b8 !important;
+}
+
+.dark-mode .text-gray-400 {
+  color: #cbd5e1 !important;
+}
+
+/* Borders */
+.dark-mode .border-gray-200 {
+  border-color: #475569 !important;
+}
+
+.dark-mode .border-gray-300 {
+  border-color: #64748b !important;
+}
+
+/* Hover-Effekte */
+.dark-mode .hover\:bg-gray-50:hover {
+  background-color: #475569 !important;
+}
+
+.dark-mode .hover\:bg-gray-100:hover {
+  background-color: #64748b !important;
+}
+
+.dark-mode .hover\:bg-gray-200:hover {
+  background-color: #94a3b8 !important;
+}
+
+.dark-mode .hover\:text-gray-600:hover {
+  color: #cbd5e1 !important;
+}
+
+.dark-mode .hover\:text-gray-700:hover {
+  color: #e2e8f0 !important;
+}
+
+/* Cards und Module Container */
+.dark-mode .card {
+  background-color: #1e293b !important;
+  border-color: #334155 !important;
+}
+
+.dark-mode .module-container {
+  background-color: transparent !important;
+}
+
+/* Tabellen */
+.dark-mode table {
+  background-color: #1e293b !important;
+}
+
+.dark-mode th {
+  background-color: #334155 !important;
+  color: #f1f5f9 !important;
+  border-color: #475569 !important;
+}
+
+.dark-mode td {
+  background-color: #1e293b !important;
+  color: #e2e8f0 !important;
+  border-color: #475569 !important;
+}
+
+.dark-mode tr:hover td {
+  background-color: #334155 !important;
+}
+
+/* Farbige Badges und Pills mit besserem Kontrast */
+.dark-mode .bg-blue-50 {
+  background-color: #1e3a8a !important;
+  color: #93c5fd !important;
+}
+
+.dark-mode .bg-blue-100 {
+  background-color: #1e40af !important;
+  color: #93c5fd !important;
+}
+
+.dark-mode .text-blue-800 {
+  color: #93c5fd !important;
+}
+
+.dark-mode .bg-green-50 {
+  background-color: #14532d !important;
+  color: #86efac !important;
+}
+
+.dark-mode .bg-green-100 {
+  background-color: #166534 !important;
+  color: #86efac !important;
+}
+
+.dark-mode .text-green-800 {
+  color: #86efac !important;
+}
+
+.dark-mode .bg-purple-50 {
+  background-color: #4c1d95 !important;
+  color: #c4b5fd !important;
+}
+
+.dark-mode .bg-purple-100 {
+  background-color: #5b21b6 !important;
+  color: #c4b5fd !important;
+}
+
+.dark-mode .text-purple-800 {
+  color: #c4b5fd !important;
+}
+
+.dark-mode .bg-yellow-50 {
+  background-color: #713f12 !important;
+  color: #fde047 !important;
+}
+
+.dark-mode .bg-yellow-100 {
+  background-color: #854d0e !important;
+  color: #fde047 !important;
+}
+
+.dark-mode .text-yellow-800 {
+  color: #fde047 !important;
+}
+
+.dark-mode .bg-orange-50 {
+  background-color: #7c2d12 !important;
+  color: #fdba74 !important;
+}
+
+.dark-mode .bg-orange-100 {
+  background-color: #9a3412 !important;
+  color: #fdba74 !important;
+}
+
+.dark-mode .text-orange-800 {
+  color: #fdba74 !important;
+}
+
+.dark-mode .bg-red-50 {
+  background-color: #7f1d1d !important;
+  color: #fca5a5 !important;
+}
+
+.dark-mode .bg-red-100 {
+  background-color: #991b1b !important;
+  color: #fca5a5 !important;
+}
+
+.dark-mode .text-red-800 {
+  color: #fca5a5 !important;
+}
+
+.dark-mode .bg-pink-50 {
+  background-color: #831843 !important;
+  color: #f9a8d4 !important;
+}
+
+.dark-mode .bg-pink-100 {
+  background-color: #9f1239 !important;
+  color: #f9a8d4 !important;
+}
+
+.dark-mode .text-pink-800 {
+  color: #f9a8d4 !important;
+}
+
+/* Input und Select Felder */
+.dark-mode input,
+.dark-mode select,
+.dark-mode textarea {
+  background-color: #334155 !important;
+  color: #e2e8f0 !important;
+  border-color: #64748b !important;
+}
+
+.dark-mode input:focus,
+.dark-mode select:focus,
+.dark-mode textarea:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3) !important;
+}
+
+.dark-mode input::placeholder,
+.dark-mode textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Buttons */
+.dark-mode button {
+  color: #e2e8f0 !important;
+}
+
+.dark-mode .btn {
+  color: #e2e8f0 !important;
+}
+
+.dark-mode .btn-primary {
+  background-color: #2563eb !important;
+  color: #ffffff !important;
+}
+
+.dark-mode .btn-primary:hover {
+  background-color: #3b82f6 !important;
+}
+
+.dark-mode .btn-secondary {
+  background-color: #475569 !important;
+  color: #e2e8f0 !important;
+  border-color: #64748b !important;
+}
+
+.dark-mode .btn-secondary:hover {
+  background-color: #64748b !important;
+}
+
+/* Modal Hintergründe */
+.dark-mode .fixed .bg-white {
+  background-color: #1e293b !important;
+}
+
+.dark-mode .fixed .bg-black {
+  background-color: rgba(0, 0, 0, 0.8) !important;
+}
+
+/* Gradients */
+.dark-mode .bg-gradient-to-r {
+  opacity: 0.9 !important;
+}
+
+.dark-mode .bg-gradient-to-br {
+  background: linear-gradient(to bottom right, #0f172a, #1e293b) !important;
+}
+
+/* Module-spezifische Anpassungen */
+
+/* AbwesenheitenModule */
+.dark-mode .hover\:bg-gray-50:hover {
+  background-color: #334155 !important;
+}
+
+/* PersonalModule */
+.dark-mode .shadow-xl {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.5) !important;
+}
+
+.dark-mode .shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* PausenaufsichtModule spezifische Farben */
+.dark-mode .bg-blue-50.dark\:bg-blue-900\/20 {
+  background-color: rgba(30, 58, 138, 0.2) !important;
+}
+
+.dark-mode .bg-green-50.dark\:bg-green-900\/20 {
+  background-color: rgba(20, 83, 45, 0.2) !important;
+}
+
+.dark-mode .bg-purple-50.dark\:bg-purple-900\/20 {
+  background-color: rgba(76, 29, 149, 0.2) !important;
+}
+
+.dark-mode .bg-yellow-50.dark\:bg-yellow-900\/20 {
+  background-color: rgba(113, 63, 18, 0.2) !important;
+}
+
+.dark-mode .bg-orange-50.dark\:bg-orange-900\/20 {
+  background-color: rgba(124, 45, 18, 0.2) !important;
+}
+
+.dark-mode .bg-red-50.dark\:bg-red-900\/20 {
+  background-color: rgba(127, 29, 29, 0.2) !important;
+}
+
+/* Badge Text verbessern */
+.dark-mode .border-blue-300 {
+  border-color: #3b82f6 !important;
+}
+
+.dark-mode .border-green-300 {
+  border-color: #10b981 !important;
+}
+
+.dark-mode .border-purple-300 {
+  border-color: #8b5cf6 !important;
+}
+
+.dark-mode .border-yellow-300 {
+  border-color: #f59e0b !important;
+}
+
+.dark-mode .border-pink-300 {
+  border-color: #ec4899 !important;
+}
+
+.dark-mode .border-gray-300 {
+  border-color: #6b7280 !important;
+}
+
+/* Toast Nachrichten */
+.dark-mode .bg-white.shadow-lg {
+  background-color: #334155 !important;
+  border-color: #64748b !important;
+}
+
+/* Scrollbar für Dark Mode */
+.dark-mode ::-webkit-scrollbar-track {
+  background: #1e293b !important;
+}
+
+.dark-mode ::-webkit-scrollbar-thumb {
+  background: #475569 !important;
+}
+
+.dark-mode ::-webkit-scrollbar-thumb:hover {
+  background: #64748b !important;
+}
+
+/* Spezielle Anpassungen für kleine Texte */
+.dark-mode .text-xs {
+  color: #cbd5e1 !important;
+  font-weight: 500 !important;
+}
+
+.dark-mode .text-sm {
+  color: #e2e8f0 !important;
+}
+
+/* Focus states */
+.dark-mode .focus\:ring-blue-500:focus {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3) !important;
+}
+
+/* Disabled states */
+.dark-mode .disabled\:bg-gray-300:disabled {
+  background-color: #475569 !important;
+  color: #94a3b8 !important;
+}
+
+/* Rounded corners konsistent */
+.dark-mode .rounded-lg,
+.dark-mode .rounded-xl,
+.dark-mode .rounded-2xl {
+  border-color: #334155 !important;
+}
